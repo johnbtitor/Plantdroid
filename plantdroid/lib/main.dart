@@ -15,6 +15,7 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         primarySwatch: Colors.blue,
       ),
+      debugShowCheckedModeBanner: false, // Add this line to remove the debug banner
       home: MyHomePage(),
     );
   }
@@ -33,6 +34,7 @@ class _MyHomePageState extends State<MyHomePage> {
   List<FlSpot> temperatureHistory = [];
   List<FlSpot> humidityHistory = [];
   List<FlSpot> lightHistory = [];
+  int pointCount = 0;
 
   @override
   void initState() {
@@ -45,6 +47,7 @@ class _MyHomePageState extends State<MyHomePage> {
         temperatureHistory.add(FlSpot(time, parsedData['temperature']));
         humidityHistory.add(FlSpot(time, parsedData['humidity']));
         lightHistory.add(FlSpot(time, parsedData['light']));
+        pointCount++;
       });
     });
   }
@@ -88,25 +91,45 @@ class _MyHomePageState extends State<MyHomePage> {
               lineBarsData: [
                 LineChartBarData(
                   spots: history,
-                  isCurved: true,
+                  isCurved: false, // Linearly connect the dots
                   colors: [color],
-                  dotData: FlDotData(show: false),
+                  dotData: FlDotData(show: true), // Show dots
+                  belowBarData: BarAreaData(show: false),
                 ),
               ],
               titlesData: FlTitlesData(
                 bottomTitles: SideTitles(
                   showTitles: true,
+                  reservedSize: 22,
+                  interval: calculateInterval(), // Calculate interval dynamically
                   getTitles: (value) {
                     final date = DateTime.fromMillisecondsSinceEpoch(value.toInt());
-                    return '${date.hour}:${date.minute}:${date.second}';
+                    return '${date.hour}:${date.minute.toString().padLeft(2, '0')}'; // Show hour and minute
                   },
                 ),
+                leftTitles: SideTitles(showTitles: true),
               ),
+              minY: 0, // Ensure Y-axis starts from 0
+              gridData: FlGridData(show: true),
+              borderData: FlBorderData(show: true),
             ),
           ),
         ),
       ],
     );
+  }
+
+  double calculateInterval() {
+    // Adjust the interval based on the number of data points to prevent overlap
+    if (pointCount < 10) {
+      return 60000; // 1 minute in milliseconds
+    } else if (pointCount < 50) {
+      return 300000; // 5 minutes in milliseconds
+    } else if (pointCount < 100) {
+      return 600000; // 10 minutes in milliseconds
+    } else {
+      return 1800000; // 30 minutes in milliseconds
+    }
   }
 
   @override
