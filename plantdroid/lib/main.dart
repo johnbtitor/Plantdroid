@@ -27,8 +27,8 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-  final WebSocketChannel channel =
-      WebSocketChannel.connect(Uri.parse('ws://10.42.0.127/ws'));
+  WebSocketChannel channel;
+  WebSocketChannel tempChannel;
 
   Map<String, dynamic> data = {'temperature': '', 'humidity': '', 'light': ''};
   List<FlSpot> temperatureHistory = [];
@@ -39,6 +39,32 @@ class _MyHomePageState extends State<MyHomePage> {
   @override
   void initState() {
     super.initState();
+    tempChannel = WebSocketChannel.connect(Uri.parse('ws://127.0.0.1/ws'));
+
+    tempChannel.stream.listen((message) {
+      final parsedData = jsonDecode(message);
+      setState(() {
+        data = parsedData;
+        final time = DateTime.now().millisecondsSinceEpoch.toDouble();
+        temperatureHistory.add(FlSpot(time, parsedData['temperature']));
+        humidityHistory.add(FlSpot(time, parsedData['humidity']));
+        lightHistory.add(FlSpot(time, parsedData['light']));
+        pointCount++;
+
+        if (parsedData.containsKey('ip')) {
+          _updateWebSocketConnection(parsedData['ip']);
+        }
+      });
+    });
+  }
+
+  void _updateWebSocketConnection(String ip) {
+    if (channel != null) {
+      channel.sink.close();
+    }
+
+    channel = WebSocketChannel.connect(Uri.parse('ws://$ip/ws'));
+
     channel.stream.listen((message) {
       final parsedData = jsonDecode(message);
       setState(() {
@@ -49,6 +75,8 @@ class _MyHomePageState extends State<MyHomePage> {
         lightHistory.add(FlSpot(time, parsedData['light']));
         pointCount++;
       });
+    }, onError: (error) {
+      print('WebSocket error: $error');
     });
   }
 
@@ -134,7 +162,11 @@ class _MyHomePageState extends State<MyHomePage> {
 
   @override
   void dispose() {
-    channel.sink.close();
+    if (channel != null) {
+      channel.sink.close();
+    }
+    tempChannel.sink.close();
     super.dispose();
   }
 }
+
